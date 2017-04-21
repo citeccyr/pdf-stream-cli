@@ -1,0 +1,15 @@
+{
+  "name": "pdf-stream-cli",
+  "version": "1.0.0",
+  "description": "PDF stream command line",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Sergey N <mrauhu@yandex.ru>",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "commander": "^2.9.0",
+    "pdf-stream": "^1.3.1"
+  }
+}
