@@ -7,6 +7,8 @@ const program = require('commander');
 const pdf_stream = require('pdf-stream');
 const package_json = require('./package.json');
 
+global.DOMParser = require('xmldom').DOMParser; // Fix: for missing DOMParser if PDF.js found metadata in string format
+
 const PDFReadable = pdf_stream.PDFReadable;
 const PDFStringifyTransform = pdf_stream.PDFStringifyTransform;
 
