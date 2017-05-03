@@ -3,10 +3,13 @@
 
 const fs = require('fs');
 const path = require('path');
+const url = require('url');
 const program = require('commander');
 const pdf_stream = require('pdf-stream');
+const CircularJSON = require('circular-json');
 const package_json = require('./package.json');
 
+global.XMLHttpRequest = require('xhr2'); // Added: HTTP input_file
 global.DOMParser = require('xmldom').DOMParser; // Fix: for missing DOMParser if PDF.js found metadata in string format
 
 const PDFReadable = pdf_stream.PDFReadable;
@@ -21,25 +24,43 @@ let waiting_for_stdin = true;
 program
   .version(package_json.version, '-v, --version')
   .description('Defaults:' +
-    '\n    input_file\t- STDIN' +
-    '\n    output_file\t- STDOUT')
+    '\n    input (file or URI)\t- STDIN' +
+    '\n    output_file\t\t- STDOUT')
   .option('-w, --whitespace []', 'whitespace replacement. Ignored for type `json`. Defaut: `` empty string.', '')
   .option('-t, --type [text]', 'type: text or json. Default: `text`.', 'text')
-  .arguments('[input_file] [output_file]')
+  .arguments('[input] [output_file]')
   .action(function (input, output) {
     //console.log('action arguments', input, output);
     // Create output and write streams
     try {
       if (input
-        && typeof input === 'string'
-        && fs.existsSync(input)) {
-        input_stream = fs.createReadStream(input);
-        //console.log('input is exists', input);
-        waiting_for_stdin = false;
+        && typeof input === 'string') {
+        if (fs.existsSync(input)) {
+          input_stream = fs.createReadStream(input);
+          //console.log('input is exists', input);
+          waiting_for_stdin = false;
+          output_callback();
+        } else {
+          let parsed_url = url.parse(input);
+          //console.log('parsed_url', parsed_url);
+          if (typeof parsed_url.hostname !== 'undefined') {
+            waiting_for_stdin = false;
+            output_callback(()=> {
+              convert_pdf(input);
+            });
+          }
+        }
       } else {
         //console.warn('Warning: input_file is not exists, use STDIN');
       }
 
+
+
+    } catch (e) {
+      console.error(e.message);
+    }
+
+    function output_callback(callback) {
       if (output
         && typeof output === 'string'
         && fs.existsSync(
@@ -47,12 +68,16 @@ program
         )) {
         output_stream = fs.createWriteStream(output);
         //console.log('output directory is exists');
+
+        if (typeof callback === 'function') {
+          callback();
+        }
       } else {
         //console.warn('Warning: output_file directory is not exists, use STDOUT');
       }
-    } catch (e) {
-      console.error(e.message);
+
     }
+
 
   })
   .parse(process.argv)
@@ -67,7 +92,7 @@ setTimeout(function () {
     console.log('Waiting for STDIN...' +
       '\nIf you are stuck press Ctrl+C and run program with --help option');
   }
-}, 1000);
+}, 5000);
 
 let buffers = [];
 input_stream
@@ -79,40 +104,53 @@ input_stream
     let buffer = Buffer.concat(buffers);
     let src = new Uint8Array(buffer);
 
-
-    switch (program.type) {
-
-      case 'text':
-        new PDFReadable(src)
-          .on('error', function (err) {
-            console.error('PDFReadable error', err);
-          })
-          .pipe(new PDFStringifyTransform({whitespace: program.whitespace}))
-          .pipe(output_stream)
-        ;
-        break;
-
-      case 'json':
-        let objects = [];
-        new PDFReadable(src)
-          .on('error', function(err){
-            console.error('PDFReadable error', err);
-          })
-          .on('data', function(data){
-            //console.log('data', data)
-            objects.push(data);
-          })
-          .on('end', function(){
-            //console.log('end');
-            output_stream.end(
-              JSON.stringify(objects)
-            );
-          });
-
-        break;
-    }
+    convert_pdf(src);
   });
 
+/**
+ * Convert PDF to type
+ * based `program.type`
+ * @param src
+ */
+function convert_pdf(src) {
+  switch (program.type) {
+
+    case 'text':
+      new PDFReadable(src)
+        .on('error', function (err) {
+          console.error('PDFReadable error', err);
+          process.exit(1);
+        })
+        .on('end', function(){
+          process.exit(0);
+        })
+        .pipe(new PDFStringifyTransform({whitespace: program.whitespace}))
+        .pipe(output_stream)
+      ;
+      break;
+
+    case 'json':
+      let objects = [];
+      new PDFReadable(src)
+        .on('error', function(err){
+          console.error('PDFReadable error', err);
+          process.exit(1);
+        })
+        .on('data', function(data){
+          //console.log('data', data)
+          objects.push(data);
+        })
+        .on('end', function(){
+          //console.log('end');
+          output_stream.end(
+            CircularJSON.stringify(objects)
+          );
+          process.exit();
+        });
+
+      break;
+  }
+}
 
 output_stream.on('finish', () => {
   //console.log('Finish writing of output_stream')
