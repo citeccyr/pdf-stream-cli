@@ -39,13 +39,13 @@ program
           input_stream = fs.createReadStream(input);
           //console.log('input is exists', input);
           waiting_for_stdin = false;
-          output_callback();
+          output_file_check();
         } else {
           let parsed_url = url.parse(input);
           //console.log('parsed_url', parsed_url);
           if (typeof parsed_url.hostname !== 'undefined') {
             waiting_for_stdin = false;
-            output_callback(()=> {
+            output_file_check(()=> {
               convert_pdf(input);
             });
           }
@@ -60,7 +60,11 @@ program
       console.error(e.message);
     }
 
-    function output_callback(callback) {
+    /**
+     * Output file check
+     * @param callback
+     */
+    function output_file_check(callback) {
       if (output
         && typeof output === 'string'
         && fs.existsSync(
@@ -74,6 +78,7 @@ program
         }
       } else {
         //console.warn('Warning: output_file directory is not exists, use STDOUT');
+        callback();
       }
 
     }
