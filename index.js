@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 'use strict';
 
+const WAIT_FOR_STDIN = 5000;
+
 const fs = require('fs');
 const path = require('path');
 const url = require('url');
 const program = require('commander');
 const pdf_stream = require('pdf-stream');
-const CircularJSON = require('circular-json');
 const package_json = require('./package.json');
 
 global.XMLHttpRequest = require('xhr2'); // Added: HTTP input_file
@@ -19,6 +20,7 @@ const PDFStringifyTransform = pdf_stream.PDFStringifyTransform;
 let input_stream = process.stdin;
 let output_stream = process.stdout;
 let waiting_for_stdin = true;
+let output_is_stdout = true;
 
 //noinspection JSAnnotator
 program
@@ -45,7 +47,7 @@ program
           //console.log('parsed_url', parsed_url);
           if (typeof parsed_url.hostname !== 'undefined') {
             waiting_for_stdin = false;
-            output_file_check(()=> {
+            output_file_check(() => {
               convert_pdf(input);
             });
           }
@@ -53,7 +55,6 @@ program
       } else {
         //console.warn('Warning: input_file is not exists, use STDIN');
       }
-
 
 
     } catch (e) {
@@ -78,6 +79,7 @@ program
         }
       } else {
         //console.warn('Warning: output_file directory is not exists, use STDOUT');
+        output_is_stdout = true;
         callback();
       }
 
@@ -97,7 +99,7 @@ setTimeout(function () {
     console.log('Waiting for STDIN...' +
       '\nIf you are stuck press Ctrl+C and run program with --help option');
   }
-}, 5000);
+}, WAIT_FOR_STDIN);
 
 let buffers = [];
 input_stream
@@ -126,8 +128,9 @@ function convert_pdf(src) {
           console.error('PDFReadable error', err);
           process.exit(1);
         })
-        .on('end', function(){
-          process.exit(0);
+        .on('end', function () {
+          //console.log('end');
+          //process.exit(0);
         })
         .pipe(new PDFStringifyTransform({whitespace: program.whitespace}))
         .pipe(output_stream)
@@ -137,20 +140,36 @@ function convert_pdf(src) {
     case 'json':
       let objects = [];
       new PDFReadable(src)
-        .on('error', function(err){
+        .on('error', function (err) {
           console.error('PDFReadable error', err);
           process.exit(1);
         })
-        .on('data', function(data){
+        .on('data', function (data) {
           //console.log('data', data)
           objects.push(data);
         })
-        .on('end', function(){
+        .on('end', function () {
           //console.log('end');
-          output_stream.end(
-            CircularJSON.stringify(objects)
-          );
-          process.exit();
+          // Fix: circular references in JSON
+          if (objects
+            && typeof objects[0] === 'object'
+            && typeof objects[0].metadata === 'object'
+            && typeof objects[0].metadata.metadata !== 'undefined'
+          ) {
+            //console.log('first chunk - before', objects[0]);
+            delete objects[0].metadata.metadata;
+            //console.log('first chunk - after', objects[0]);
+          }
+
+          output_stream.write(JSON.stringify(objects), () => {
+            //console.log('Output stream after end');
+            // Fix: Cannot close STDOUT
+            if (!output_is_stdout) {
+              output_stream.end(); // Process exit automatically
+            } else {
+              process.exit();       // Force exit
+            }
+          });
         });
 
       break;
@@ -158,5 +177,10 @@ function convert_pdf(src) {
 }
 
 output_stream.on('finish', () => {
-  //console.log('Finish writing of output_stream')
+  //console.log('Finish writing of output_stream');
+  //process.exit();
+});
+
+process.on('exit', () => {
+  //console.log('process exit');
 });
