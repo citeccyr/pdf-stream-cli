@@ -2,6 +2,7 @@
 'use strict';
 
 const WAIT_FOR_STDIN = 5000;
+const WAIT_FOR_TEXT_WRITING = 3000;
 
 const fs = require('fs');
 const path = require('path');
@@ -130,7 +131,10 @@ function convert_pdf(src) {
         })
         .on('end', function () {
           //console.log('end');
-          //process.exit(0);
+          // Fix: not exit after writing text to STDOUT
+          setTimeout(()=>{
+            process.exit();
+          }, WAIT_FOR_TEXT_WRITING);
         })
         .pipe(new PDFStringifyTransform({whitespace: program.whitespace}))
         .pipe(output_stream)
@@ -176,9 +180,10 @@ function convert_pdf(src) {
   }
 }
 
+// Only for text if not writing to STDOUT
 output_stream.on('finish', () => {
   //console.log('Finish writing of output_stream');
-  //process.exit();
+  process.exit();
 });
 
 process.on('exit', () => {
