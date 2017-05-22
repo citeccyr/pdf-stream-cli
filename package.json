@@ -1,11 +1,35 @@
 {
   "name": "pdf-stream-cli",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "PDF stream command line",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/citeccyr/pdf-stream.git"
+  },
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "keywords": [
+    "pdf",
+    "stream",
+    "pipe",
+    "cli",
+    "tty",
+    "shell",
+    "command-line",
+    "terminal",
+    "transform",
+    "conversion",
+    "convert",
+    "text",
+    "json",
+    "extract",
+    "data",
+    "pdftotext",
+    "pdfjs",
+    "pdf.js"
+  ],
   "author": "Sergey N <mrauhu@yandex.ru>",
   "license": "Apache-2.0",
   "dependencies": {
