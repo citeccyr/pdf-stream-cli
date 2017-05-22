@@ -20,7 +20,7 @@ Based on [pdf-stream](https://www.npmjs.com/package/pdf-stream) module and [PDF.
 You need [Node.js](https://nodejs.org/) and NPM. Then install node module globally:
 
 ```bash
-  npm install -g pdf-stream-cli
+  npm i pdf-stream-cli -g
 ```
 
 
